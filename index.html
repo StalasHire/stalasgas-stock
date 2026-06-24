@@ -1,31 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Stala'sGas Dashboard</title>
+
+<link rel="stylesheet" href="style.css">
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    background:#f5f5f5;
+    margin:0;
+    padding:20px;
+}
+
+header{
+    background:#ff6600;
+    color:white;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+.stats{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 2px 5px rgba(0,0,0,.1);
+    min-width:200px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+}
+
+th{
+    background:#ff6600;
+    color:white;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:10px;
+    text-align:left;
+}
+
+button{
+    background:#28a745;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    opacity:.9;
+}
+</style>
+
+</head>
+
+<body>
+
+<header>
+    <h1>🔥 Stala'sGas Management Dashboard</h1>
+</header>
+
 <div class="stats">
 
-  <h2>Total Orders:
-    <span id="totalOrders">0</span>
-  </h2>
+    <div class="card">
+        <h2 id="totalOrders">0</h2>
+        <p>Total Orders</p>
+    </div>
 
-  <h2>Total Revenue:
-    <span id="totalRevenue">R0</span>
-  </h2>
+    <div class="card">
+        <h2 id="totalRevenue">R0</h2>
+        <p>Total Revenue</p>
+    </div>
 
 </div>
 
-<table border="1">
+<h2>Orders</h2>
 
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Customer</th>
-      <th>Phone</th>
-      <th>Type</th>
-      <th>Cylinder</th>
-      <th>Amount</th>
-      <th>Status</th>
-      <th>Action</th>
-    </tr>
-  </thead>
+<table>
 
-  <tbody id="ordersTable">
-  </tbody>
+<thead>
+<tr>
+<th>ID</th>
+<th>Customer</th>
+<th>Phone</th>
+<th>Type</th>
+<th>Cylinder</th>
+<th>Amount</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody id="ordersTable">
+</tbody>
 
 </table>
+
+<!-- SUPABASE CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- APP -->
+<script src="app.js"></script>
+
+</body>
+</html>
