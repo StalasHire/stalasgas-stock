@@ -1,8 +1,7 @@
 // STALA'S GAS MANAGEMENT SYSTEM
-
-const supabase = Supabase.createClient(
-  'YOUR_SUPABASE_URL',
-  'YOUR_SUPABASE_ANON_KEY'
+const supabase = window.supabase.createClient(
+  'https://prgyyylrwxkzelydtaaw.supabase.co',
+  'sb_publishable_FK3b49UnfyeMxKpcL0v92w_p0Lf5brf'
 );
 
 document.addEventListener('DOMContentLoaded', () => {
