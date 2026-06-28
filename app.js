@@ -61,84 +61,39 @@ async function loadOrders() {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select("*");
 
   if (error) {
-    console.error(error);
+    console.error("Supabase Error:", error);
+    alert(error.message);
     return;
   }
 
+  console.log("Orders:", data);
+
   const tbody = document.getElementById("ordersTable");
-
-  if (!tbody)
-    return;
-
   tbody.innerHTML = "";
 
   data.forEach(order => {
 
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${order.id}</td>
-      <td>${order.customer_name}</td>
-      <td>${order.customer_phone}</td>
-      <td>${order.order_type}</td>
-      <td>${order.cylinder_size}</td>
-      <td>${order.quantity}</td>
-      <td>R${order.amount}</td>
-      <td>${order.status}</td>
-      <td>
-        <button onclick="markDelivered(${order.id})">
-          Deliver
-        </button>
-      </td>
+    tbody.innerHTML += `
+      <tr>
+        <td>${order.id}</td>
+        <td>${order.customer_name}</td>
+        <td>${order.customer_phone}</td>
+        <td>${order.order_type}</td>
+        <td>${order.cylinder_size}</td>
+        <td>${order.quantity}</td>
+        <td>R${order.amount}</td>
+        <td>${order.status}</td>
+        <td>
+          <button onclick="markDelivered(${order.id})">
+            Deliver
+          </button>
+        </td>
+      </tr>
     `;
 
-    tbody.appendChild(tr);
-
   });
-
-}
-
-// -------------------------
-// Mark Delivered
-// -------------------------
-async function markDelivered(id) {
-
-  const { error } = await supabase
-    .from("orders")
-    .update({
-      status: "Delivered",
-      completed_at: new Date().toISOString()
-    })
-    .eq("id", id);
-
-  if (error) {
-    alert(error.message);
-  }
-
-}
-
-// -------------------------
-// Real-time Updates
-// -------------------------
-function subscribeRealtime() {
-
-  supabase
-    .channel("orders-channel")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "orders"
-      },
-      () => {
-        loadDashboard();
-      }
-    )
-    .subscribe();
 
 }
