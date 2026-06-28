@@ -2,7 +2,7 @@
 
 const supabase = window.supabase.createClient(
     "https://prgyyylrwxkzelydtaaw.supabase.co",
-    "YOUR_SUPABASE_ANON_KEY"
+    "sb_publishable_FK3b49UnfyeMxKpcL0v92w_p0Lf5brf"
 );
 
 async function login() {
