@@ -1,67 +1,41 @@
-// STALA'S GAS MANAGEMENT SYSTEM
+// =====================================
+// STALA'S GAS BUSINESS MANAGEMENT SYSTEM
+// app.js
+// =====================================
 
+// Supabase Connection
 const supabase = window.supabase.createClient(
-  'https://prgyyylrwxkzelydtaaw.supabase.co',
-  'sb_publishable_FK3b49UnfyeMxKpcL0v92w_p0Lf5brf'
+  "https://prgyyylrwxkzelydtaaw.supabase.co",
+  "sb_publishable_FK3b49UnfyeMxKpcL0v92w_p0Lf5brf"
 );
 
-document.addEventListener('DOMContentLoaded', () => {
+// Start the dashboard
+document.addEventListener("DOMContentLoaded", () => {
   loadDashboard();
-  setupRealtime();
+  subscribeRealtime();
 });
 
+// -------------------------
+// Load Dashboard
+// -------------------------
 async function loadDashboard() {
-  await loadOrders();
   await loadStats();
+  await loadOrders();
 }
 
-async function loadOrders() {
+// -------------------------
+// Dashboard Statistics
+// -------------------------
+async function loadStats() {
 
   const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .from("orders")
+    .select("amount");
 
   if (error) {
     console.error(error);
     return;
   }
-
-  const tbody = document.getElementById('ordersTable');
-
-  tbody.innerHTML = '';
-
-  data.forEach(order => {
-
-    const row = document.createElement('tr');
-
-    row.innerHTML = `
-      <td>${order.id}</td>
-      <td>${order.customer_name}</td>
-      <td>${order.customer_phone}</td>
-      <td>${order.order_type}</td>
-      <td>${order.cylinder_size}</td>
-      <td>R${order.amount}</td>
-      <td>${order.status}</td>
-
-      <td>
-        <button onclick="markDelivered(${order.id})">
-          Deliver
-        </button>
-      </td>
-    `;
-
-    tbody.appendChild(row);
-
-  });
-
-}
-
-async function loadStats() {
-
-  const { data } = await supabase
-    .from('orders')
-    .select('*');
 
   let revenue = 0;
 
@@ -69,83 +43,102 @@ async function loadStats() {
     revenue += Number(order.amount);
   });
 
-  document.getElementById('totalOrders').textContent =
-    data.length;
+  const totalOrders = document.getElementById("totalOrders");
+  const totalRevenue = document.getElementById("totalRevenue");
 
-  document.getElementById('totalRevenue').textContent =
-    `R${revenue}`;
+  if (totalOrders)
+    totalOrders.textContent = data.length;
+
+  if (totalRevenue)
+    totalRevenue.textContent = "R" + revenue.toFixed(2);
 
 }
 
-async function createOrder(orderData) {
+// -------------------------
+// Load Orders Table
+// -------------------------
+async function loadOrders() {
 
-  const { error } = await supabase
-    .from('orders')
-    .insert([orderData]);
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (error) {
-    alert(error.message);
+    console.error(error);
     return;
   }
 
-  alert('Order Saved');
+  const tbody = document.getElementById("ordersTable");
+
+  if (!tbody)
+    return;
+
+  tbody.innerHTML = "";
+
+  data.forEach(order => {
+
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${order.id}</td>
+      <td>${order.customer_name}</td>
+      <td>${order.customer_phone}</td>
+      <td>${order.order_type}</td>
+      <td>${order.cylinder_size}</td>
+      <td>${order.quantity}</td>
+      <td>R${order.amount}</td>
+      <td>${order.status}</td>
+      <td>
+        <button onclick="markDelivered(${order.id})">
+          Deliver
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+
+  });
 
 }
 
-async function markDelivered(orderId) {
+// -------------------------
+// Mark Delivered
+// -------------------------
+async function markDelivered(id) {
 
   const { error } = await supabase
-    .from('orders')
+    .from("orders")
     .update({
-      status: 'Delivered',
-      completed_at: new Date()
+      status: "Delivered",
+      completed_at: new Date().toISOString()
     })
-    .eq('id', orderId);
+    .eq("id", id);
 
   if (error) {
     alert(error.message);
-    return;
   }
 
 }
 
-async function assignDriver(orderId, driverId) {
-
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      assigned_driver: driverId
-    })
-    .eq('id', orderId);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-}
-
-function setupRealtime() {
+// -------------------------
+// Real-time Updates
+// -------------------------
+function subscribeRealtime() {
 
   supabase
-    .channel('orders-channel')
-
+    .channel("orders-channel")
     .on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: '*',
-        schema: 'public',
-        table: 'orders'
+        event: "*",
+        schema: "public",
+        table: "orders"
       },
-      payload => {
-
-        console.log('Realtime Update', payload);
-
+      () => {
         loadDashboard();
-
       }
     )
-
     .subscribe();
 
 }
