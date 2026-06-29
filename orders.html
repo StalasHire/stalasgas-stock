@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>New Order - Stala'sGas</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+<header>
+
+<h1>🔥 STALA'S GAS</h1>
+
+<h2>New Customer Order</h2>
+
+</header>
+
+<div class="container">
+
+<label>Customer Name</label>
+<input type="text" id="customerName">
+
+<label>Phone Number</label>
+<input type="tel" id="customerPhone">
+
+<label>Delivery Address</label>
+<textarea id="customerAddress"></textarea>
+
+<label>Order Type</label>
+
+<select id="orderType">
+<option value="">Select</option>
+<option value="Exchange">Exchange</option>
+<option value="Refill">Refill</option>
+<option value="Cylinder + Gas">Cylinder + Gas</option>
+<option value="Empty Cylinder">Empty Cylinder</option>
+</select>
+
+<label>Cylinder Size</label>
+
+<select id="cylinderSize">
+<option value="">Select</option>
+<option>5kg</option>
+<option>7kg</option>
+<option>9kg</option>
+<option>14kg</option>
+<option>19kg</option>
+<option>48kg</option>
+</select>
+
+<label>Quantity</label>
+
+<input
+type="number"
+id="quantity"
+value="1"
+min="1">
+
+<label>Payment Method</label>
+
+<select id="paymentMethod">
+<option>Cash</option>
+<option>EFT</option>
+<option>Card</option>
+</select>
+
+<h2 id="totalPrice">
+
+Total: R0.00
+
+</h2>
+
+<button id="saveBtn">
+
+Save Order
+
+</button>
+
+</div>
+
+<script src="orders.js"></script>
+
+</body>
+</html>
