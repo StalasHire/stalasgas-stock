@@ -46,39 +46,39 @@ document.getElementById("saveBtn").addEventListener("click", saveOrder);
 
 async function saveOrder() {
 
-    const total = currentPrice * Number(quantity.value);
-
-    const { error } = await supabase
-        .from("orders")
-        .insert({
-
-            customer_name: document.getElementById("customerName").value,
-
-            customer_phone: document.getElementById("customerPhone").value,
-
-            customer_address: document.getElementById("customerAddress").value,
-
-            order_type: orderType.value,
-
-            cylinder_size: cylinderSize.value,
-
-            quantity: Number(quantity.value),
-
-            amount: total,
-
-            payment_method: document.getElementById("paymentMethod").value,
-
-            status: "Pending"
-
-        });
-
-    if (error) {
-        alert(error.message);
+    if (currentPrice === 0) {
+        alert("Please select a valid Order Type and Cylinder Size first.");
         return;
     }
+
+    const order = {
+        customer_name: document.getElementById("customerName").value.trim(),
+        customer_phone: document.getElementById("customerPhone").value.trim(),
+        customer_address: document.getElementById("customerAddress").value.trim(),
+        order_type: orderType.value,
+        cylinder_size: cylinderSize.value,
+        quantity: Number(quantity.value),
+        amount: currentPrice * Number(quantity.value),
+        payment_method: document.getElementById("paymentMethod").value,
+        status: "Pending"
+    };
+
+    console.log("Saving order:", order);
+
+    const { data, error } = await supabase
+        .from("orders")
+        .insert([order])
+        .select();
+
+    if (error) {
+        console.error("Insert Error:", error);
+        alert("Error: " + error.message);
+        return;
+    }
+
+    console.log("Order saved:", data);
 
     alert("Order Saved Successfully!");
 
     window.location.href = "index.html";
-
 }
