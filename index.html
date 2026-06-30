@@ -120,6 +120,13 @@
     position:fixed;bottom:24px;right:24px;background:var(--char);color:#fff;padding:13px 20px;
     border-radius:10px;font-size:13px;box-shadow:0 10px 30px -10px rgba(0,0,0,0.4);display:none;z-index:50;
   }
+  .tab-nav{display:flex;gap:6px;margin-bottom:18px;border-bottom:2px solid var(--line);}
+  .tab-btn{
+    background:transparent;border:none;padding:10px 18px;font-size:14px;font-weight:600;
+    color:#8a7565;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;
+  }
+  .tab-btn:hover{color:var(--char);}
+  .tab-btn.active{color:var(--ember-deep);border-bottom-color:var(--ember);}
 </style>
 </head>
 <body>
@@ -411,58 +418,82 @@ async function renderAdminDashboard(){
       <div class="stat-card"><div class="num">R${totalRevenue.toFixed(2)}</div><div class="label">Total revenue</div></div>
       <div class="stat-card"><div class="num">${pending}</div><div class="label">Pending orders</div></div>
     </div>
-    <div class="panel">
-      <h2>Cylinder prices</h2>
-      <p style="font-size:13px;color:#8a7565;margin-top:-8px;">Set a price for each order type and cylinder size.</p>
-      <div style="overflow-x:auto;">
-      <table>
-        <thead><tr><th>Order type</th>${CYL_SIZES.map(s=>`<th>${s}</th>`).join('')}</tr></thead>
-        <tbody>
-          ${ORDER_TYPES.map(type=>`
-            <tr>
-              <td><strong>${type}</strong></td>
-              ${CYL_SIZES.map(size=>{
-                const key = `${type}|${size}`;
-                const val = priceList[key] !== undefined ? priceList[key].toFixed(2) : '0.00';
-                return `<td><input type="number" min="0" step="0.01" class="price-input" data-type="${type}" data-size="${size}" value="${val}" style="width:80px;padding:6px 8px;"></td>`;
-              }).join('')}
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      </div>
-      <button class="primary" id="save-prices-btn" style="margin-top:14px;max-width:200px;">Save prices</button>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="orders">Orders</button>
+      <button class="tab-btn" data-tab="prices">Prices</button>
+      <button class="tab-btn" data-tab="stock">Stock</button>
     </div>
-    <div class="panel">
-      <h2>Stock levels</h2>
-      <p style="font-size:13px;color:#8a7565;margin-top:-8px;">Full cylinders on hand at each location. Update and click Save stock — every change is logged.</p>
-      <div style="overflow-x:auto;">
-      <table>
-        <thead><tr><th>Location</th>${CYL_SIZES.map(s=>`<th>${s}</th>`).join('')}</tr></thead>
-        <tbody>
-          ${['Warehouse','Branch 1','Branch 2'].map(loc=>`
-            <tr>
-              <td><strong>${loc}</strong></td>
-              ${CYL_SIZES.map(size=>{
-                const row = (stockRows||[]).find(r=>r.location===loc && r.cylinder_size===size);
-                const val = row ? row.full_count : 0;
-                return `<td><input type="number" min="0" class="stock-input" data-location="${loc}" data-size="${size}" value="${val}" style="width:70px;padding:6px 8px;"></td>`;
-              }).join('')}
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+
+    <div class="tab-content" id="tab-orders">
+      ${orderFormHTML()}
+      <div class="panel">
+        <h2>All orders</h2>
+        <div id="orders-table"></div>
       </div>
-      <button class="primary" id="save-stock-btn" style="margin-top:14px;max-width:200px;">Save stock</button>
     </div>
-    ${orderFormHTML()}
-    <div class="panel">
-      <h2>All orders</h2>
-      <div id="orders-table"></div>
+
+    <div class="tab-content" id="tab-prices" style="display:none;">
+      <div class="panel">
+        <h2>Cylinder prices</h2>
+        <p style="font-size:13px;color:#8a7565;margin-top:-8px;">Set a price for each order type and cylinder size.</p>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Order type</th>${CYL_SIZES.map(s=>`<th>${s}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${ORDER_TYPES.map(type=>`
+              <tr>
+                <td><strong>${type}</strong></td>
+                ${CYL_SIZES.map(size=>{
+                  const key = `${type}|${size}`;
+                  const val = priceList[key] !== undefined ? priceList[key].toFixed(2) : '0.00';
+                  return `<td><input type="number" min="0" step="0.01" class="price-input" data-type="${type}" data-size="${size}" value="${val}" style="width:80px;padding:6px 8px;"></td>`;
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        </div>
+        <button class="primary" id="save-prices-btn" style="margin-top:14px;max-width:200px;">Save prices</button>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-stock" style="display:none;">
+      <div class="panel">
+        <h2>Stock levels</h2>
+        <p style="font-size:13px;color:#8a7565;margin-top:-8px;">Full cylinders on hand at each location. Update and click Save stock — every change is logged.</p>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Location</th>${CYL_SIZES.map(s=>`<th>${s}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${['Warehouse','Branch 1','Branch 2'].map(loc=>`
+              <tr>
+                <td><strong>${loc}</strong></td>
+                ${CYL_SIZES.map(size=>{
+                  const row = (stockRows||[]).find(r=>r.location===loc && r.cylinder_size===size);
+                  const val = row ? row.full_count : 0;
+                  return `<td><input type="number" min="0" class="stock-input" data-location="${loc}" data-size="${size}" value="${val}" style="width:70px;padding:6px 8px;"></td>`;
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        </div>
+        <button class="primary" id="save-stock-btn" style="margin-top:14px;max-width:200px;">Save stock</button>
+      </div>
     </div>
   `;
   renderOrdersTable(orders, true, drivers || []);
   wireOrderForm(()=>renderAdminDashboard());
+
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).style.display='block';
+    });
+  });
 
   document.getElementById('save-prices-btn').addEventListener('click', async ()=>{
     const inputs = document.querySelectorAll('.price-input');
