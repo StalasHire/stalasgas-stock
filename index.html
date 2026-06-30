@@ -398,6 +398,8 @@ async function renderAdminDashboard(){
   const { data: orders, error } = await sb.from('orders').select('*').order('created_at', { ascending:false });
   if(error){ main.innerHTML = `<div class="empty-state">Could not load orders: ${error.message}</div>`; return; }
 
+  const { data: drivers } = await sb.from('profiles').select('id, full_name').eq('role', 'driver');
+
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce((sum,o)=> sum + (parseFloat(o.amount)||0), 0);
   const pending = orders.filter(o=>o.status==='Pending').length;
@@ -436,7 +438,7 @@ async function renderAdminDashboard(){
       <div id="orders-table"></div>
     </div>
   `;
-  renderOrdersTable(orders, true);
+  renderOrdersTable(orders, true, drivers || []);
   wireOrderForm(()=>renderAdminDashboard());
 
   document.getElementById('save-prices-btn').addEventListener('click', async ()=>{
@@ -455,13 +457,14 @@ async function renderAdminDashboard(){
   });
 }
 
-function renderOrdersTable(orders, canManage){
+function renderOrdersTable(orders, canManage, drivers){
+  drivers = drivers || [];
   const container = document.getElementById('orders-table');
   if(!orders.length){ container.innerHTML = `<div class="empty-state">No orders yet.</div>`; return; }
   container.innerHTML = `
     <table>
       <thead><tr>
-        <th>ID</th><th>Customer</th><th>Phone</th><th>Type</th><th>Cylinder</th><th>Qty</th><th>Amount</th><th>Status</th>${canManage?'<th>Action</th>':''}
+        <th>ID</th><th>Customer</th><th>Phone</th><th>Type</th><th>Cylinder</th><th>Qty</th><th>Amount</th><th>Status</th>${canManage?'<th>Action</th><th>Driver</th>':''}
       </tr></thead>
       <tbody>
         ${orders.map(o=>`
@@ -478,6 +481,12 @@ function renderOrdersTable(orders, canManage){
               <select class="status-select" data-id="${o.id}">
                 ${STATUSES.map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}
               </select>
+            </td>
+            <td>
+              <select class="driver-select" data-id="${o.id}" ${drivers.length===0 ? 'disabled title="No drivers added yet"' : ''}>
+                <option value="">${drivers.length===0 ? 'No drivers yet' : 'Unassigned'}</option>
+                ${drivers.map(d=>`<option value="${d.id}" ${o.assigned_driver===d.id?'selected':''}>${d.full_name}</option>`).join('')}
+              </select>
             </td>` : ''}
           </tr>
         `).join('')}
@@ -492,6 +501,17 @@ function renderOrdersTable(orders, canManage){
         const { error } = await sb.from('orders').update({ status: newStatus }).eq('id', id);
         if(error){ showToast('Could not update status: ' + error.message, true); }
         else showToast(`Order #${1000+parseInt(id)} marked ${newStatus}.`);
+      });
+    });
+    container.querySelectorAll('.driver-select').forEach(sel=>{
+      sel.addEventListener('change', async (e)=>{
+        const id = e.target.dataset.id;
+        const driverId = e.target.value || null;
+        const updates = { assigned_driver: driverId };
+        if(driverId) updates.status = 'Assigned';
+        const { error } = await sb.from('orders').update(updates).eq('id', id);
+        if(error){ showToast('Could not assign driver: ' + error.message, true); }
+        else showToast(`Order #${1000+parseInt(id)} assigned.`);
       });
     });
   }
