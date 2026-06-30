@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stala's Gas — Business Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  :root{
+    --ember:#d9590c;
+    --ember-deep:#b9430a;
+    --char:#241712;
+    --char-soft:#3a2a22;
+    --cream:#fbf2e6;
+    --sand:#f0e1ca;
+    --line:#e3cba8;
+    --ok:#3f7d4f;
+    --warn:#c98a1c;
+    --danger:#b23a2e;
+    --font-display:'Iowan Old Style','Georgia',serif;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:var(--font-body);background:var(--cream);color:var(--char);
+    min-height:100vh;
+  }
+  .flame{font-size:1.1em;}
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 30% 20%, #fff7ec 0%, var(--cream) 55%, var(--sand) 100%);
+    padding:24px;
+  }
+  .login-card{
+    background:#fff;border:1px solid var(--line);border-radius:18px;
+    padding:40px 36px;max-width:380px;width:100%;
+    box-shadow:0 20px 50px -20px rgba(36,23,18,0.25);
+  }
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .brand-mark{
+    width:40px;height:40px;border-radius:10px;background:linear-gradient(145deg,var(--ember),var(--ember-deep));
+    display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;
+  }
+  .brand h1{font-family:var(--font-display);font-size:21px;margin:0;letter-spacing:0.3px;}
+  .brand small{display:block;color:var(--char-soft);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin-top:1px;}
+  .login-card h2{font-family:var(--font-display);font-size:17px;margin:24px 0 4px;color:var(--char-soft);font-weight:600;}
+  .login-card p.sub{font-size:13px;color:#8a7565;margin:0 0 20px;}
+  label{font-size:12px;font-weight:600;color:var(--char-soft);display:block;margin-bottom:5px;letter-spacing:0.3px;}
+  input{
+    width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;
+    font-size:14px;margin-bottom:14px;background:#fffdfa;color:var(--char);
+  }
+  input:focus{outline:2px solid var(--ember);outline-offset:1px;border-color:var(--ember);}
+  button.primary{
+    width:100%;padding:12px;border:none;border-radius:9px;background:var(--ember);
+    color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.2px;
+    transition:background .15s ease;
+  }
+  button.primary:hover{background:var(--ember-deep);}
+  button.primary:disabled{opacity:0.55;cursor:default;}
+  #login-error{color:var(--danger);font-size:13px;margin-top:10px;display:none;}
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:none;min-height:100vh;}
+  header.topbar{
+    background:var(--char);color:var(--sand);display:flex;align-items:center;
+    justify-content:space-between;padding:14px 22px;position:sticky;top:0;z-index:10;
+  }
+  header.topbar .brand{margin:0;}
+  header.topbar .brand h1{color:#fff;}
+  header.topbar .brand small{color:#caa97e;}
+  .who{display:flex;align-items:center;gap:12px;}
+  .who .role-pill{
+    font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;
+    padding:4px 10px;border-radius:20px;background:var(--ember);color:#fff;
+  }
+  .who button{
+    background:transparent;border:1px solid #5c473a;color:var(--sand);
+    padding:7px 13px;border-radius:8px;font-size:13px;cursor:pointer;
+  }
+  .who button:hover{background:#3a2a22;}
+
+  main{max-width:1100px;margin:0 auto;padding:26px 20px 60px;}
+  .stat-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:26px;}
+  .stat-card{
+    background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;
+    flex:1;min-width:150px;
+  }
+  .stat-card .num{font-family:var(--font-display);font-size:28px;color:var(--ember-deep);}
+  .stat-card .label{font-size:12px;color:#8a7565;text-transform:uppercase;letter-spacing:0.8px;margin-top:2px;}
+
+  .panel{
+    background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:22px;
+  }
+  .panel h2{font-family:var(--font-display);font-size:18px;margin:0 0 16px;color:var(--char);}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:#8a7565;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;padding:8px 10px;border-bottom:2px solid var(--line);}
+  td{padding:10px 10px;border-bottom:1px solid #f0e6d6;}
+  tr:hover td{background:#fdf8ef;}
+  .status-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .status-Pending{background:#fbe8c8;color:var(--warn);}
+  .status-Assigned{background:#e3edff;color:#2d5fae;}
+  .status-OutforDelivery{background:#fde3c0;color:var(--ember-deep);}
+  .status-Delivered{background:#e1f0e2;color:var(--ok);}
+  .status-Cancelled{background:#f6dcd8;color:var(--danger);}
+
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-grid .full{grid-column:1/-1;}
+  @media (max-width:680px){.form-grid{grid-template-columns:1fr;}}
+  select{
+    width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;
+    font-size:14px;background:#fffdfa;color:var(--char);
+  }
+  .btn-small{padding:6px 12px;font-size:12px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;}
+  .btn-small:hover{background:var(--sand);}
+  .empty-state{color:#a08e7c;font-size:13px;padding:20px 0;text-align:center;}
+  .toast{
+    position:fixed;bottom:24px;right:24px;background:var(--char);color:#fff;padding:13px 20px;
+    border-radius:10px;font-size:13px;box-shadow:0 10px 30px -10px rgba(0,0,0,0.4);display:none;z-index:50;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-mark">🔥</div>
+      <div>
+        <h1>Stala's Gas</h1>
+        <small>Business Manager</small>
+      </div>
+    </div>
+    <h2>Sign in</h2>
+    <p class="sub">Use your team email and password.</p>
+    <label for="login-email">Email</label>
+    <input id="login-email" type="email" placeholder="you@stala.co.za" autocomplete="username">
+    <label for="login-password">Password</label>
+    <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+    <button class="primary" id="login-btn">Sign in</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" style="width:32px;height:32px;font-size:16px;">🔥</div>
+      <div><h1 style="font-size:17px;">Stala's Gas</h1></div>
+    </div>
+    <div class="who">
+      <span id="who-name"></span>
+      <span class="role-pill" id="who-role"></span>
+      <button id="logout-btn">Log out</button>
+    </div>
+  </header>
+  <main id="main-content">
+    <div class="empty-state">Loading…</div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ CONFIG ============ */
+const SUPABASE_URL = "https://kaqrxufvvyljpdtnwowj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_FK3b49UnfyeMxKpcL0v92w_p0Lf5brf";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const EMAILJS_PUBLIC_KEY = "UuKKnY5gfgBQ3bq0";
+const EMAILJS_SERVICE_ID = "service_8eq8kp4";
+const EMAILJS_TEMPLATE_ID = "template_8oetxyw";
+const WHATSAPP_NUMBER = "27725744458"; // 072 574 4458 in international format, no +
+const NOTIFY_EMAIL = "info@stala.co.za";
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+const CYL_SIZES = ['3kg','5kg','7kg','9kg','14kg','19kg','48kg'];
+const ORDER_TYPES = ['Exchange','Refill','Cylinder + Gas','Empty Cylinder'];
+const STATUSES = ['Pending','Assigned','Out for Delivery','Delivered','Cancelled'];
+
+let currentProfile = null;
+let priceList = {}; // { '9kg': 250.00, ... }
+
+async function loadPrices(){
+  const { data, error } = await sb.from('prices').select('*');
+  if(!error && data){
+    priceList = {};
+    data.forEach(p => priceList[p.cylinder_size] = parseFloat(p.price));
+  }
+}
+
+function showToast(msg, isError=false){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? '#b23a2e' : '#241712';
+  t.style.display = 'block';
+  setTimeout(()=> t.style.display='none', 3200);
+}
+
+/* ============ AUTH ============ */
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  if(!email || !password){ errEl.textContent = 'Enter your email and password.'; errEl.style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if(error){
+    errEl.textContent = error.message || 'Could not sign in. Check your details.';
+    errEl.style.display = 'block';
+    return;
+  }
+  await loadProfileAndRoute();
+}
+
+document.getElementById('logout-btn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  currentProfile = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+});
+
+async function loadProfileAndRoute(){
+  const { data: userData } = await sb.auth.getUser();
+  if(!userData?.user){ return; }
+  const { data: profile, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', userData.user.id)
+    .single();
+
+  if(error || !profile){
+    showToast('No profile found for this account. Ask your admin to add you.', true);
+    await sb.auth.signOut();
+    return;
+  }
+  currentProfile = profile;
+  await loadPrices();
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('who-name').textContent = profile.full_name;
+  document.getElementById('who-role').textContent = profile.role;
+  routeToDashboard();
+}
+
+/* Restore session on page load */
+sb.auth.getSession().then(({ data })=>{
+  if(data?.session){ loadProfileAndRoute(); }
+});
+
+/* ============ ROUTING ============ */
+function routeToDashboard(){
+  if(currentProfile.role === 'admin') renderAdminDashboard();
+  else if(currentProfile.role === 'sales') renderSalesDashboard();
+  else if(currentProfile.role === 'driver') renderDriverDashboard();
+}
+
+/* ============ SHARED: ORDER FORM ============ */
+function orderFormHTML(){
+  return `
+  <div class="panel">
+    <h2>New order</h2>
+    <div class="form-grid">
+      <div><label>Customer name</label><input id="f-name" placeholder="e.g. Thandi Nkosi"></div>
+      <div><label>Phone number</label><input id="f-phone" placeholder="e.g. 0821234567"></div>
+      <div class="full"><label>Delivery address</label><input id="f-address" placeholder="e.g. 12 Voortrekker Rd, Bellville"></div>
+      <div>
+        <label>Order type</label>
+        <select id="f-type"><option value="">Select</option>${ORDER_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+      </div>
+      <div>
+        <label>Cylinder size</label>
+        <select id="f-size"><option value="">Select</option>${CYL_SIZES.map(s=>`<option>${s}</option>`).join('')}</select>
+      </div>
+      <div><label>Quantity</label><input id="f-qty" type="number" min="1" value="1"></div>
+      <div><label>Amount (R)</label><input id="f-amount" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div>
+        <label>Payment method</label>
+        <select id="f-payment"><option value="">Select</option><option>Cash</option><option>EFT</option><option>Card</option></select>
+      </div>
+    </div>
+    <button class="primary" style="margin-top:14px;max-width:220px;" id="save-order-btn">Save order</button>
+    <div id="wa-send-box" style="margin-top:14px;"></div>
+  </div>`;
+}
+
+function wireOrderForm(onSaved){
+  const sizeEl = document.getElementById('f-size');
+  const qtyEl = document.getElementById('f-qty');
+  const amountEl = document.getElementById('f-amount');
+
+  function autoFillAmount(){
+    const size = sizeEl.value;
+    const qty = parseInt(qtyEl.value || '1', 10);
+    if(size && priceList[size] !== undefined){
+      amountEl.value = (priceList[size] * qty).toFixed(2);
+    }
+  }
+  sizeEl.addEventListener('change', autoFillAmount);
+  qtyEl.addEventListener('input', autoFillAmount);
+
+  document.getElementById('save-order-btn').addEventListener('click', async ()=>{
+    const name = document.getElementById('f-name').value.trim();
+    const phone = document.getElementById('f-phone').value.trim();
+    const address = document.getElementById('f-address').value.trim();
+    const type = document.getElementById('f-type').value;
+    const size = document.getElementById('f-size').value;
+    const qty = parseInt(document.getElementById('f-qty').value || '1', 10);
+    const amount = parseFloat(document.getElementById('f-amount').value || '0');
+    const payment = document.getElementById('f-payment').value;
+
+    if(!name || !phone || !type || !size || !payment){
+      showToast('Fill in customer name, phone, order type, cylinder size and payment method.', true);
+      return;
+    }
+
+    // upsert customer
+    let { data: existingCustomer } = await sb.from('customers').select('id').eq('phone', phone).maybeSingle();
+    let customerId = existingCustomer?.id;
+    if(!customerId){
+      const { data: newCust, error: custErr } = await sb.from('customers')
+        .insert({ name, phone, address }).select('id').single();
+      if(custErr){ showToast('Could not save customer: ' + custErr.message, true); return; }
+      customerId = newCust.id;
+    }
+
+    const { data: insertedOrder, error } = await sb.from('orders').insert({
+      customer_id: customerId,
+      customer_name: name,
+      customer_phone: phone,
+      delivery_address: address,
+      order_type: type,
+      cylinder_size: size,
+      quantity: qty,
+      amount: amount,
+      payment_method: payment,
+      status: 'Pending',
+      created_by: currentProfile.id
+    }).select('id').single();
+    if(error){ showToast('Could not save order: ' + error.message, true); return; }
+    showToast('Order saved.');
+    const orderNum = 1000 + (insertedOrder?.id || 0);
+
+    // Send automatic email notification
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      order_id: orderNum,
+      customer_name: name,
+      customer_phone: phone,
+      delivery_address: address || 'N/A',
+      order_type: type,
+      cylinder_size: size,
+      quantity: qty,
+      amount: amount.toFixed(2),
+      payment_method: payment,
+      to_email: NOTIFY_EMAIL
+    }).catch(()=>{ /* fail silently, order is already saved */ });
+
+    // Build WhatsApp share link with order details
+    const waText = encodeURIComponent(
+      `New Stala's Gas order #${orderNum}:\n` +
+      `Customer: ${name}\n` +
+      `Phone: ${phone}\n` +
+      `Address: ${address || 'N/A'}\n` +
+      `Type: ${type}\n` +
+      `Cylinder: ${qty} x ${size}\n` +
+      `Amount: R${amount.toFixed(2)}\n` +
+      `Payment: ${payment}`
+    );
+    const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${waText}`;
+    const waBox = document.getElementById('wa-send-box');
+    if(waBox){
+      waBox.innerHTML = `<a href="${waLink}" target="_blank" class="primary" style="display:inline-block;text-decoration:none;text-align:center;padding:12px;border-radius:9px;background:#25D366;color:#fff;font-weight:700;max-width:240px;">Send order to WhatsApp</a>`;
+    }
+
+    onSaved && onSaved();
+  });
+}
+
+/* ============ ADMIN DASHBOARD ============ */
+async function renderAdminDashboard(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="empty-state">Loading dashboard…</div>`;
+
+  const { data: orders, error } = await sb.from('orders').select('*').order('created_at', { ascending:false });
+  if(error){ main.innerHTML = `<div class="empty-state">Could not load orders: ${error.message}</div>`; return; }
+
+  const totalOrders = orders.length;
+  const totalRevenue = orders.reduce((sum,o)=> sum + (parseFloat(o.amount)||0), 0);
+  const pending = orders.filter(o=>o.status==='Pending').length;
+
+  main.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-card"><div class="num">${totalOrders}</div><div class="label">Total orders</div></div>
+      <div class="stat-card"><div class="num">R${totalRevenue.toFixed(2)}</div><div class="label">Total revenue</div></div>
+      <div class="stat-card"><div class="num">${pending}</div><div class="label">Pending orders</div></div>
+    </div>
+    <div class="panel">
+      <h2>Cylinder prices</h2>
+      <div class="form-grid" id="price-grid">
+        ${CYL_SIZES.map(size=>`
+          <div>
+            <label>${size}</label>
+            <input type="number" min="0" step="0.01" class="price-input" data-size="${size}" value="${priceList[size] !== undefined ? priceList[size].toFixed(2) : '0.00'}">
+          </div>
+        `).join('')}
+      </div>
+      <button class="primary" id="save-prices-btn" style="margin-top:10px;max-width:200px;">Save prices</button>
+    </div>
+    ${orderFormHTML()}
+    <div class="panel">
+      <h2>All orders</h2>
+      <div id="orders-table"></div>
+    </div>
+  `;
+  renderOrdersTable(orders, true);
+  wireOrderForm(()=>renderAdminDashboard());
+
+  document.getElementById('save-prices-btn').addEventListener('click', async ()=>{
+    const inputs = document.querySelectorAll('.price-input');
+    const updates = Array.from(inputs).map(i => ({
+      cylinder_size: i.dataset.size,
+      price: parseFloat(i.value || '0')
+    }));
+    for(const u of updates){
+      const { error } = await sb.from('prices').upsert(u, { onConflict: 'cylinder_size' });
+      if(error){ showToast('Could not save price for ' + u.cylinder_size + ': ' + error.message, true); return; }
+    }
+    await loadPrices();
+    showToast('Prices updated.');
+  });
+}
+
+function renderOrdersTable(orders, canManage){
+  const container = document.getElementById('orders-table');
+  if(!orders.length){ container.innerHTML = `<div class="empty-state">No orders yet.</div>`; return; }
+  container.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Customer</th><th>Phone</th><th>Type</th><th>Cylinder</th><th>Qty</th><th>Amount</th><th>Status</th>${canManage?'<th>Action</th>':''}
+      </tr></thead>
+      <tbody>
+        ${orders.map(o=>`
+          <tr data-id="${o.id}">
+            <td>#${1000+o.id}</td>
+            <td>${o.customer_name}</td>
+            <td>${o.customer_phone}</td>
+            <td>${o.order_type}</td>
+            <td>${o.cylinder_size}</td>
+            <td>${o.quantity}</td>
+            <td>R${parseFloat(o.amount||0).toFixed(2)}</td>
+            <td><span class="status-pill status-${o.status.replace(/\s/g,'')}">${o.status}</span></td>
+            ${canManage ? `<td>
+              <select class="status-select" data-id="${o.id}">
+                ${STATUSES.map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </td>` : ''}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  if(canManage){
+    container.querySelectorAll('.status-select').forEach(sel=>{
+      sel.addEventListener('change', async (e)=>{
+        const id = e.target.dataset.id;
+        const newStatus = e.target.value;
+        const { error } = await sb.from('orders').update({ status: newStatus }).eq('id', id);
+        if(error){ showToast('Could not update status: ' + error.message, true); }
+        else showToast(`Order #${1000+parseInt(id)} marked ${newStatus}.`);
+      });
+    });
+  }
+}
+
+/* ============ SALES DASHBOARD ============ */
+async function renderSalesDashboard(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="empty-state">Loading…</div>`;
+  const { data: orders, error } = await sb.from('orders').select('*').order('created_at', { ascending:false }).limit(100);
+  if(error){ main.innerHTML = `<div class="empty-state">Could not load orders: ${error.message}</div>`; return; }
+
+  main.innerHTML = `
+    ${orderFormHTML()}
+    <div class="panel">
+      <h2>Recent orders</h2>
+      <div id="orders-table"></div>
+    </div>
+  `;
+  renderOrdersTable(orders, false);
+  wireOrderForm(()=>renderSalesDashboard());
+}
+
+/* ============ DRIVER DASHBOARD ============ */
+async function renderDriverDashboard(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="empty-state">Loading your deliveries…</div>`;
+  const { data: orders, error } = await sb.from('orders')
+    .select('*')
+    .eq('assigned_driver', currentProfile.id)
+    .neq('status', 'Delivered')
+    .neq('status', 'Cancelled')
+    .order('created_at', { ascending:true });
+
+  if(error){ main.innerHTML = `<div class="empty-state">Could not load deliveries: ${error.message}</div>`; return; }
+
+  main.innerHTML = `
+    <div class="panel">
+      <h2>Your deliveries today</h2>
+      <div id="driver-orders"></div>
+    </div>
+  `;
+  const container = document.getElementById('driver-orders');
+  if(!orders.length){
+    container.innerHTML = `<div class="empty-state">No deliveries assigned to you right now.</div>`;
+    return;
+  }
+  container.innerHTML = orders.map(o=>`
+    <div style="border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>#${1000+o.id} — ${o.customer_name}</strong>
+        <span class="status-pill status-${o.status.replace(/\s/g,'')}">${o.status}</span>
+      </div>
+      <div style="font-size:13px;color:#6b5a4a;margin-top:4px;">${o.delivery_address || 'No address on file'} · ${o.customer_phone}</div>
+      <div style="font-size:13px;margin-top:4px;">${o.order_type} — ${o.quantity} × ${o.cylinder_size}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn-small mark-out" data-id="${o.id}">Out for delivery</button>
+        <button class="btn-small mark-delivered" data-id="${o.id}">Mark delivered</button>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.mark-out').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const id = e.target.dataset.id;
+      await sb.from('orders').update({ status:'Out for Delivery' }).eq('id', id);
+      showToast('Marked out for delivery.');
+      renderDriverDashboard();
+    });
+  });
+  container.querySelectorAll('.mark-delivered').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const id = e.target.dataset.id;
+      await sb.from('orders').update({ status:'Delivered', delivered_at: new Date().toISOString() }).eq('id', id);
+      showToast('Marked delivered.');
+      renderDriverDashboard();
+    });
+  });
+}
+</script>
+</body>
+</html>
