@@ -398,6 +398,91 @@ function wireOrderForm(onSaved){
 }
 
 /* ============ ADMIN DASHBOARD ============ */
+/* ============ SHARED: CUSTOMER SEARCH ============ */
+function customerSearchHTML(){
+  return `
+  <div class="panel">
+    <h2>Customer lookup</h2>
+    <p style="font-size:13px;color:#8a7565;margin-top:-8px;">Search by name or phone number to see a customer's full order history.</p>
+    <input id="cust-search" placeholder="e.g. Thandi or 0821234567" style="margin-bottom:10px;">
+    <div id="cust-results"></div>
+  </div>`;
+}
+
+function wireCustomerSearch(){
+  const input = document.getElementById('cust-search');
+  const resultsEl = document.getElementById('cust-results');
+  let timer;
+  input.addEventListener('input', ()=>{
+    clearTimeout(timer);
+    timer = setTimeout(()=>runCustomerSearch(input.value.trim(), resultsEl), 350);
+  });
+}
+
+async function runCustomerSearch(query, resultsEl){
+  if(!query){ resultsEl.innerHTML = ''; return; }
+  resultsEl.innerHTML = `<div class="empty-state">Searching…</div>`;
+
+  const { data: customers, error } = await sb
+    .from('customers')
+    .select('*')
+    .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+    .limit(10);
+
+  if(error){ resultsEl.innerHTML = `<div class="empty-state">Search failed: ${error.message}</div>`; return; }
+  if(!customers.length){ resultsEl.innerHTML = `<div class="empty-state">No customers found.</div>`; return; }
+
+  resultsEl.innerHTML = customers.map(c => `
+    <div class="cust-card" data-phone="${c.phone}" style="border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:8px;cursor:pointer;">
+      <strong>${c.name}</strong> — ${c.phone}
+      ${c.address ? `<div style="font-size:12px;color:#8a7565;margin-top:2px;">${c.address}</div>` : ''}
+      <div class="cust-orders" data-phone="${c.phone}" style="margin-top:10px;display:none;"></div>
+    </div>
+  `).join('');
+
+  resultsEl.querySelectorAll('.cust-card').forEach(card=>{
+    card.addEventListener('click', async ()=>{
+      const phone = card.dataset.phone;
+      const ordersEl = card.querySelector('.cust-orders');
+      const isOpen = ordersEl.style.display === 'block';
+      resultsEl.querySelectorAll('.cust-orders').forEach(el=>el.style.display='none');
+      if(isOpen) return;
+
+      ordersEl.innerHTML = `<div class="empty-state">Loading orders…</div>`;
+      ordersEl.style.display = 'block';
+      const { data: custOrders, error: ordErr } = await sb
+        .from('orders')
+        .select('*')
+        .eq('customer_phone', phone)
+        .order('created_at', { ascending:false });
+
+      if(ordErr){ ordersEl.innerHTML = `<div class="empty-state">Could not load orders: ${ordErr.message}</div>`; return; }
+      if(!custOrders.length){ ordersEl.innerHTML = `<div class="empty-state">No orders yet for this customer.</div>`; return; }
+
+      const totalSpent = custOrders.reduce((sum,o)=> sum + (parseFloat(o.amount)||0), 0);
+      ordersEl.innerHTML = `
+        <div style="font-size:12px;color:#8a7565;margin-bottom:8px;">${custOrders.length} order(s) — R${totalSpent.toFixed(2)} total</div>
+        <table>
+          <thead><tr><th>ID</th><th>Date</th><th>Type</th><th>Cylinder</th><th>Qty</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            ${custOrders.map(o=>`
+              <tr>
+                <td>#${1000+o.id}</td>
+                <td>${new Date(o.created_at).toLocaleDateString()}</td>
+                <td>${o.order_type}</td>
+                <td>${o.cylinder_size}</td>
+                <td>${o.quantity}</td>
+                <td>R${parseFloat(o.amount||0).toFixed(2)}</td>
+                <td><span class="status-pill status-${o.status.replace(/\s/g,'')}">${o.status}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    });
+  });
+}
+
 async function renderAdminDashboard(){
   const main = document.getElementById('main-content');
   main.innerHTML = `<div class="empty-state">Loading dashboard…</div>`;
@@ -421,6 +506,7 @@ async function renderAdminDashboard(){
 
     <div class="tab-nav">
       <button class="tab-btn active" data-tab="orders">Orders</button>
+      <button class="tab-btn" data-tab="customers">Customers</button>
       <button class="tab-btn" data-tab="prices">Prices</button>
       <button class="tab-btn" data-tab="stock">Stock</button>
     </div>
@@ -431,6 +517,10 @@ async function renderAdminDashboard(){
         <h2>All orders</h2>
         <div id="orders-table"></div>
       </div>
+    </div>
+
+    <div class="tab-content" id="tab-customers" style="display:none;">
+      ${customerSearchHTML()}
     </div>
 
     <div class="tab-content" id="tab-prices" style="display:none;">
@@ -485,6 +575,7 @@ async function renderAdminDashboard(){
   `;
   renderOrdersTable(orders, true, drivers || []);
   wireOrderForm(()=>renderAdminDashboard());
+  wireCustomerSearch();
 
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -627,6 +718,7 @@ async function renderSalesDashboard(){
       </div>
     </div>
     ${orderFormHTML()}
+    ${customerSearchHTML()}
     <div class="panel">
       <h2>Recent orders</h2>
       <div id="orders-table"></div>
@@ -634,6 +726,7 @@ async function renderSalesDashboard(){
   `;
   renderOrdersTable(orders, false);
   wireOrderForm(()=>renderSalesDashboard());
+  wireCustomerSearch();
 }
 
 /* ============ DRIVER DASHBOARD ============ */
