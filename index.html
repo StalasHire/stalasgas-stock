@@ -399,6 +399,7 @@ async function renderAdminDashboard(){
   if(error){ main.innerHTML = `<div class="empty-state">Could not load orders: ${error.message}</div>`; return; }
 
   const { data: drivers } = await sb.from('profiles').select('id, full_name').eq('role', 'driver');
+  const { data: stockRows } = await sb.from('stock').select('*');
 
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce((sum,o)=> sum + (parseFloat(o.amount)||0), 0);
@@ -432,6 +433,28 @@ async function renderAdminDashboard(){
       </div>
       <button class="primary" id="save-prices-btn" style="margin-top:14px;max-width:200px;">Save prices</button>
     </div>
+    <div class="panel">
+      <h2>Stock levels</h2>
+      <p style="font-size:13px;color:#8a7565;margin-top:-8px;">Full cylinders on hand at each location. Update and click Save stock — every change is logged.</p>
+      <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Location</th>${CYL_SIZES.map(s=>`<th>${s}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${['Warehouse','Branch 1','Branch 2'].map(loc=>`
+            <tr>
+              <td><strong>${loc}</strong></td>
+              ${CYL_SIZES.map(size=>{
+                const row = (stockRows||[]).find(r=>r.location===loc && r.cylinder_size===size);
+                const val = row ? row.full_count : 0;
+                return `<td><input type="number" min="0" class="stock-input" data-location="${loc}" data-size="${size}" value="${val}" style="width:70px;padding:6px 8px;"></td>`;
+              }).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      </div>
+      <button class="primary" id="save-stock-btn" style="margin-top:14px;max-width:200px;">Save stock</button>
+    </div>
     ${orderFormHTML()}
     <div class="panel">
       <h2>All orders</h2>
@@ -454,6 +477,33 @@ async function renderAdminDashboard(){
     }
     await loadPrices();
     showToast('Prices updated.');
+  });
+
+  document.getElementById('save-stock-btn').addEventListener('click', async ()=>{
+    const inputs = document.querySelectorAll('.stock-input');
+    for(const i of inputs){
+      const location = i.dataset.location;
+      const size = i.dataset.size;
+      const newFull = parseInt(i.value || '0', 10);
+      const existing = (stockRows||[]).find(r=>r.location===location && r.cylinder_size===size);
+      const oldFull = existing ? existing.full_count : 0;
+
+      const { error } = await sb.from('stock')
+        .upsert({ location, cylinder_size: size, full_count: newFull, empty_count: existing?.empty_count || 0 }, { onConflict: 'location,cylinder_size' });
+      if(error){ showToast(`Could not save stock for ${location} ${size}: ${error.message}`, true); return; }
+
+      if(newFull !== oldFull){
+        await sb.from('stock_movements').insert({
+          moved_by: currentProfile.id,
+          to_location: location,
+          cylinder_size: size,
+          full_qty: newFull - oldFull,
+          note: `Manual stock update: ${oldFull} → ${newFull}`
+        });
+      }
+    }
+    showToast('Stock updated.');
+    renderAdminDashboard();
   });
 }
 
@@ -523,8 +573,28 @@ async function renderSalesDashboard(){
   main.innerHTML = `<div class="empty-state">Loading…</div>`;
   const { data: orders, error } = await sb.from('orders').select('*').order('created_at', { ascending:false }).limit(100);
   if(error){ main.innerHTML = `<div class="empty-state">Could not load orders: ${error.message}</div>`; return; }
+  const { data: stockRows } = await sb.from('stock').select('*');
 
   main.innerHTML = `
+    <div class="panel">
+      <h2>Stock levels</h2>
+      <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Location</th>${CYL_SIZES.map(s=>`<th>${s}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${['Warehouse','Branch 1','Branch 2'].map(loc=>`
+            <tr>
+              <td><strong>${loc}</strong></td>
+              ${CYL_SIZES.map(size=>{
+                const row = (stockRows||[]).find(r=>r.location===loc && r.cylinder_size===size);
+                return `<td>${row ? row.full_count : 0}</td>`;
+              }).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      </div>
+    </div>
     ${orderFormHTML()}
     <div class="panel">
       <h2>Recent orders</h2>
