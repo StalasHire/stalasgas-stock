@@ -776,29 +776,20 @@ async function renderAdminDashboard(){
     const slug = name.toLowerCase().replace(/\s+/g,'.').replace(/[^a-z0-9.]/g,'');
     const tempEmail = `staff.${slug}.${Date.now()}@stala.internal`;
 
-    // Use signUp to create the auth user (works from client side)
+    // Use signUp — trigger will auto-create profile from metadata
     const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
       email: tempEmail,
       password: pin + 'stala',
-      options: { data: { full_name: name } }
+      options: { data: { full_name: name, role: role, is_staff: 'true' } }
     });
 
     btn.disabled=false; btn.textContent='Add staff member';
-
     if(signUpErr){ showToast('Could not create login: ' + signUpErr.message, true); return; }
 
     const userId = signUpData.user?.id;
-    if(!userId){ showToast('Account created but could not get user ID. Try again.', true); return; }
+    if(!userId){ showToast('Could not get user ID. Try again.', true); return; }
 
-    // Insert profile with auth_email stored for PIN login
-    const { error: profErr } = await sb.from('profiles').insert({
-      id: userId,
-      full_name: name,
-      role: role,
-      auth_email: tempEmail
-    });
-    if(profErr){ showToast('Login created but profile failed: ' + profErr.message, true); return; }
-
+    // Trigger handles profile creation automatically
     showToast(`${name} added! They can now log in with PIN: ${pin}.`);
     document.getElementById('new-staff-name').value='';
     document.getElementById('new-staff-pin').value='';
