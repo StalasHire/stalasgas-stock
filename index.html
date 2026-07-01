@@ -61,6 +61,11 @@
   button.primary:hover{background:var(--ember-deep);}
   button.primary:disabled{opacity:0.55;cursor:default;}
   #login-error{color:var(--danger);font-size:13px;margin-top:10px;display:none;}
+  .login-tabs{display:flex;gap:0;margin:18px 0 16px;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .login-tab{flex:1;padding:9px;border:none;background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:#8a7565;}
+  .login-tab.active{background:var(--ember);color:#fff;}
+  .pin-row{display:flex;gap:10px;margin-top:6px;}
+  .pin-box{width:52px;height:58px;text-align:center;font-size:22px;font-weight:700;border:2px solid var(--line);border-radius:10px;padding:0;}
 
   /* ---------- APP SHELL ---------- */
   #app{display:none;min-height:100vh;}
@@ -141,13 +146,37 @@
         <small>Business Manager</small>
       </div>
     </div>
-    <h2>Sign in</h2>
-    <p class="sub">Use your team email and password.</p>
-    <label for="login-email">Email</label>
-    <input id="login-email" type="email" placeholder="you@stala.co.za" autocomplete="username">
-    <label for="login-password">Password</label>
-    <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
-    <button class="primary" id="login-btn">Sign in</button>
+
+    <div class="login-tabs">
+      <button class="login-tab active" id="tab-staff-btn">Staff</button>
+      <button class="login-tab" id="tab-admin-btn">Admin</button>
+    </div>
+
+    <!-- STAFF PIN LOGIN -->
+    <div id="staff-login">
+      <label for="staff-select">Your name</label>
+      <select id="staff-select">
+        <option value="">Select your name…</option>
+      </select>
+      <label style="margin-top:12px;">PIN</label>
+      <div class="pin-row">
+        <input class="pin-box" id="p1" type="password" inputmode="numeric" maxlength="1">
+        <input class="pin-box" id="p2" type="password" inputmode="numeric" maxlength="1">
+        <input class="pin-box" id="p3" type="password" inputmode="numeric" maxlength="1">
+        <input class="pin-box" id="p4" type="password" inputmode="numeric" maxlength="1">
+      </div>
+      <button class="primary" id="staff-login-btn" style="margin-top:16px;">Sign in</button>
+    </div>
+
+    <!-- ADMIN EMAIL LOGIN -->
+    <div id="admin-login" style="display:none;">
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" placeholder="you@stala.co.za" autocomplete="username">
+      <label for="login-password">Password</label>
+      <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+      <button class="primary" id="login-btn" style="margin-top:4px;">Sign in</button>
+    </div>
+
     <div id="login-error"></div>
   </div>
 </div>
@@ -209,6 +238,85 @@ function showToast(msg, isError=false){
 }
 
 /* ============ AUTH ============ */
+
+// Tab switching
+document.getElementById('tab-staff-btn').addEventListener('click', ()=>{
+  document.getElementById('staff-login').style.display='block';
+  document.getElementById('admin-login').style.display='none';
+  document.getElementById('tab-staff-btn').classList.add('active');
+  document.getElementById('tab-admin-btn').classList.remove('active');
+});
+document.getElementById('tab-admin-btn').addEventListener('click', ()=>{
+  document.getElementById('admin-login').style.display='block';
+  document.getElementById('staff-login').style.display='none';
+  document.getElementById('tab-admin-btn').classList.add('active');
+  document.getElementById('tab-staff-btn').classList.remove('active');
+});
+
+// Load staff list into dropdown (non-admin profiles)
+async function loadStaffDropdown(){
+  const { data } = await sb.from('profiles').select('id, full_name, role').neq('role','admin').order('full_name');
+  const sel = document.getElementById('staff-select');
+  if(data && data.length){
+    data.forEach(p=>{
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.full_name} (${p.role})`;
+      sel.appendChild(opt);
+    });
+  }
+}
+loadStaffDropdown();
+
+// PIN box auto-advance
+['p1','p2','p3','p4'].forEach((id, i, arr)=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', ()=>{
+    el.value = el.value.replace(/\D/g,'').slice(0,1);
+    if(el.value && i < arr.length-1) document.getElementById(arr[i+1]).focus();
+  });
+  el.addEventListener('keydown', e=>{
+    if(e.key==='Backspace' && !el.value && i > 0) document.getElementById(arr[i-1]).focus();
+    if(e.key==='Enter') doStaffLogin();
+  });
+});
+
+// Staff PIN login
+document.getElementById('staff-login-btn').addEventListener('click', doStaffLogin);
+
+async function doStaffLogin(){
+  const profileId = document.getElementById('staff-select').value;
+  const pin = ['p1','p2','p3','p4'].map(id=>document.getElementById(id).value).join('');
+  const errEl = document.getElementById('login-error');
+  errEl.style.display='none';
+  if(!profileId){ errEl.textContent='Please select your name.'; errEl.style.display='block'; return; }
+  if(pin.length !== 4){ errEl.textContent='Enter your 4-digit PIN.'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('staff-login-btn');
+  btn.disabled=true; btn.textContent='Signing in…';
+
+  // Look up their stored auth email
+  const { data: profile, error: profErr } = await sb.from('profiles').select('auth_email').eq('id', profileId).single();
+  if(profErr || !profile?.auth_email){
+    btn.disabled=false; btn.textContent='Sign in';
+    errEl.textContent = 'Account not found. Ask your admin to re-add you.';
+    errEl.style.display='block';
+    return;
+  }
+
+  const { data, error } = await sb.auth.signInWithPassword({ email: profile.auth_email, password: pin });
+  btn.disabled=false; btn.textContent='Sign in';
+  if(error){
+    errEl.textContent = 'Incorrect PIN. Try again.';
+    errEl.style.display='block';
+    ['p1','p2','p3','p4'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('p1').focus();
+    return;
+  }
+  await loadProfileAndRoute();
+}
+
+// Admin email login
 document.getElementById('login-btn').addEventListener('click', doLogin);
 document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 
@@ -507,8 +615,10 @@ async function renderAdminDashboard(){
     <div class="tab-nav">
       <button class="tab-btn active" data-tab="orders">Orders</button>
       <button class="tab-btn" data-tab="customers">Customers</button>
+      <button class="tab-btn" data-tab="reports">Reports</button>
       <button class="tab-btn" data-tab="prices">Prices</button>
       <button class="tab-btn" data-tab="stock">Stock</button>
+      <button class="tab-btn" data-tab="staff">Staff</button>
     </div>
 
     <div class="tab-content" id="tab-orders">
@@ -521,6 +631,34 @@ async function renderAdminDashboard(){
 
     <div class="tab-content" id="tab-customers" style="display:none;">
       ${customerSearchHTML()}
+    </div>
+
+    <div class="tab-content" id="tab-reports" style="display:none;">
+      <div id="reports-content"><div class="empty-state">Loading reports…</div></div>
+    </div>
+
+    <div class="tab-content" id="tab-staff" style="display:none;">
+      <div class="panel">
+        <h2>Add staff member</h2>
+        <p style="font-size:13px;color:#8a7565;margin-top:-8px;">Create a login for a driver or sales person. They sign in with their name + 4-digit PIN.</p>
+        <div class="form-grid">
+          <div><label>Full name</label><input id="new-staff-name" placeholder="e.g. Chris"></div>
+          <div>
+            <label>Role</label>
+            <select id="new-staff-role">
+              <option value="driver">Driver</option>
+              <option value="sales">Sales</option>
+            </select>
+          </div>
+          <div><label>4-digit PIN</label><input id="new-staff-pin" type="password" inputmode="numeric" maxlength="4" placeholder="e.g. 1234" style="letter-spacing:6px;font-size:18px;"></div>
+          <div><label>Confirm PIN</label><input id="new-staff-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="e.g. 1234" style="letter-spacing:6px;font-size:18px;"></div>
+        </div>
+        <button class="primary" id="add-staff-btn" style="margin-top:14px;max-width:200px;">Add staff member</button>
+      </div>
+      <div class="panel">
+        <h2>Current staff</h2>
+        <div id="staff-list"><div class="empty-state">Loading…</div></div>
+      </div>
     </div>
 
     <div class="tab-content" id="tab-prices" style="display:none;">
@@ -583,7 +721,90 @@ async function renderAdminDashboard(){
       document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).style.display='block';
+      if(btn.dataset.tab === 'reports') renderReports(orders);
+      if(btn.dataset.tab === 'staff') loadStaffList();
     });
+  });
+
+  async function loadStaffList(){
+    const el = document.getElementById('staff-list');
+    if(!el) return;
+    const { data, error } = await sb.from('profiles').select('*').neq('role','admin').order('full_name');
+    if(error){ el.innerHTML=`<div class="empty-state">Could not load staff: ${error.message}</div>`; return; }
+    if(!data.length){ el.innerHTML=`<div class="empty-state">No staff added yet.</div>`; return; }
+    el.innerHTML=`
+      <table>
+        <thead><tr><th>Name</th><th>Role</th><th>Action</th></tr></thead>
+        <tbody>
+          ${data.map(p=>`
+            <tr>
+              <td>${p.full_name}</td>
+              <td>${p.role}</td>
+              <td><button class="btn-small remove-staff" data-id="${p.id}" data-name="${p.full_name}">Remove</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    el.querySelectorAll('.remove-staff').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const id = e.target.dataset.id;
+        const name = e.target.dataset.name;
+        if(!confirm(`Remove ${name}? They will no longer be able to log in.`)) return;
+        // Delete auth user via profile delete (cascade handles it)
+        const { error } = await sb.from('profiles').delete().eq('id', id);
+        if(error){ showToast('Could not remove: ' + error.message, true); return; }
+        showToast(`${name} removed.`);
+        loadStaffList();
+      });
+    });
+  }
+
+  document.getElementById('add-staff-btn').addEventListener('click', async ()=>{
+    const name = document.getElementById('new-staff-name').value.trim();
+    const role = document.getElementById('new-staff-role').value;
+    const pin = document.getElementById('new-staff-pin').value;
+    const pin2 = document.getElementById('new-staff-pin2').value;
+    if(!name){ showToast('Enter a name.', true); return; }
+    if(pin.length !== 4 || !/^\d{4}$/.test(pin)){ showToast('PIN must be exactly 4 digits.', true); return; }
+    if(pin !== pin2){ showToast('PINs do not match.', true); return; }
+
+    const btn = document.getElementById('add-staff-btn');
+    btn.disabled=true; btn.textContent='Creating…';
+
+    // Create Supabase auth user with internal email + PIN as password
+    const slug = name.toLowerCase().replace(/\s+/g,'.').replace(/[^a-z0-9.]/g,'');
+    const tempEmail = `staff.${slug}.${Date.now()}@stala.internal`;
+
+    // Use signUp to create the auth user (works from client side)
+    const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
+      email: tempEmail,
+      password: pin,
+      options: { data: { full_name: name } }
+    });
+
+    btn.disabled=false; btn.textContent='Add staff member';
+
+    if(signUpErr){ showToast('Could not create login: ' + signUpErr.message, true); return; }
+
+    const userId = signUpData.user?.id;
+    if(!userId){ showToast('Account created but could not get user ID. Try again.', true); return; }
+
+    // Insert profile with auth_email stored for PIN login
+    const { error: profErr } = await sb.from('profiles').insert({
+      id: userId,
+      full_name: name,
+      role: role,
+      auth_email: tempEmail
+    });
+    if(profErr){ showToast('Login created but profile failed: ' + profErr.message, true); return; }
+
+    showToast(`${name} added! They can now log in with PIN: ${pin}.`);
+    document.getElementById('new-staff-name').value='';
+    document.getElementById('new-staff-pin').value='';
+    document.getElementById('new-staff-pin2').value='';
+    loadStaffList();
+    loadStaffDropdown(); // refresh login dropdown
   });
 
   document.getElementById('save-prices-btn').addEventListener('click', async ()=>{
@@ -629,6 +850,118 @@ async function renderAdminDashboard(){
   });
 }
 
+/* ============ REPORTS ============ */
+function renderReports(orders){
+  const el = document.getElementById('reports-content');
+  if(!el) return;
+
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+  const monthAgo = new Date(now); monthAgo.setDate(monthAgo.getDate() - 30);
+
+  const delivered = orders.filter(o=>o.status==='Delivered');
+  const todayOrders = orders.filter(o=>new Date(o.created_at).toDateString()===todayStr);
+  const weekOrders = orders.filter(o=>new Date(o.created_at)>=weekAgo);
+  const monthOrders = orders.filter(o=>new Date(o.created_at)>=monthAgo);
+
+  const rev = arr => arr.reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+
+  // Orders by type
+  const byType = {};
+  ORDER_TYPES.forEach(t=>{ byType[t]={count:0,revenue:0}; });
+  orders.forEach(o=>{
+    if(byType[o.order_type]){
+      byType[o.order_type].count++;
+      byType[o.order_type].revenue += parseFloat(o.amount)||0;
+    }
+  });
+
+  // Orders by cylinder size
+  const bySize = {};
+  CYL_SIZES.forEach(s=>{ bySize[s]={count:0,revenue:0}; });
+  orders.forEach(o=>{
+    if(bySize[o.cylinder_size]){
+      bySize[o.cylinder_size].count++;
+      bySize[o.cylinder_size].revenue += parseFloat(o.amount)||0;
+    }
+  });
+
+  // Top 5 customers by spend
+  const custSpend = {};
+  orders.forEach(o=>{
+    const k = o.customer_phone;
+    if(!custSpend[k]) custSpend[k]={ name:o.customer_name, phone:o.customer_phone, total:0, count:0 };
+    custSpend[k].total += parseFloat(o.amount)||0;
+    custSpend[k].count++;
+  });
+  const topCustomers = Object.values(custSpend).sort((a,b)=>b.total-a.total).slice(0,5);
+
+  el.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-card"><div class="num">${todayOrders.length}</div><div class="label">Orders today</div></div>
+      <div class="stat-card"><div class="num">R${rev(todayOrders).toFixed(2)}</div><div class="label">Revenue today</div></div>
+      <div class="stat-card"><div class="num">${weekOrders.length}</div><div class="label">Orders this week</div></div>
+      <div class="stat-card"><div class="num">R${rev(weekOrders).toFixed(2)}</div><div class="label">Revenue this week</div></div>
+      <div class="stat-card"><div class="num">${monthOrders.length}</div><div class="label">Orders this month</div></div>
+      <div class="stat-card"><div class="num">R${rev(monthOrders).toFixed(2)}</div><div class="label">Revenue this month</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex-wrap:wrap;">
+      <div class="panel">
+        <h2>By order type</h2>
+        <table>
+          <thead><tr><th>Type</th><th>Orders</th><th>Revenue</th></tr></thead>
+          <tbody>
+            ${ORDER_TYPES.map(t=>`
+              <tr>
+                <td>${t}</td>
+                <td>${byType[t].count}</td>
+                <td>R${byType[t].revenue.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>By cylinder size</h2>
+        <table>
+          <thead><tr><th>Size</th><th>Orders</th><th>Revenue</th></tr></thead>
+          <tbody>
+            ${CYL_SIZES.map(s=>`
+              <tr>
+                <td>${s}</td>
+                <td>${bySize[s].count}</td>
+                <td>R${bySize[s].revenue.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:0;">
+      <h2>Top customers</h2>
+      ${topCustomers.length ? `
+      <table>
+        <thead><tr><th>Customer</th><th>Phone</th><th>Orders</th><th>Total spent</th></tr></thead>
+        <tbody>
+          ${topCustomers.map(c=>`
+            <tr>
+              <td>${c.name}</td>
+              <td>${c.phone}</td>
+              <td>${c.count}</td>
+              <td>R${c.total.toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>` : `<div class="empty-state">No orders yet.</div>`}
+    </div>
+  `;
+}
+
+/* ============ ORDERS TABLE ============ */
 function renderOrdersTable(orders, canManage, drivers){
   drivers = drivers || [];
   const container = document.getElementById('orders-table');
