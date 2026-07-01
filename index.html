@@ -304,7 +304,7 @@ async function doStaffLogin(){
     return;
   }
 
-  const { data, error } = await sb.auth.signInWithPassword({ email: profile.auth_email, password: pin });
+  const { data, error } = await sb.auth.signInWithPassword({ email: profile.auth_email, password: pin + 'stala' });
   btn.disabled=false; btn.textContent='Sign in';
   if(error){
     errEl.textContent = 'Incorrect PIN. Try again.';
@@ -779,7 +779,7 @@ async function renderAdminDashboard(){
     // Use signUp to create the auth user (works from client side)
     const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
       email: tempEmail,
-      password: pin,
+      password: pin + 'stala',
       options: { data: { full_name: name } }
     });
 
